@@ -1,4 +1,4 @@
-package common;
+package monitoring.common;
 
 import java.util.concurrent.atomic.AtomicLong;
 

@@ -1,4 +1,4 @@
-package leader;
+package monitoring.leader;
 
 import java.security.SecureRandom;
 import java.util.Base64;

@@ -1,6 +1,6 @@
-package leader;
+package monitoring.leader;
 
-import common.NodeId;
+import monitoring.common.NodeId;
 
 import java.util.List;
 

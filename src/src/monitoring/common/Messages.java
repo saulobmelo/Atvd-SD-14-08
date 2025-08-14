@@ -1,4 +1,4 @@
-package common;
+package monitoring.common;
 
 public class Messages {
     public static final String HB_PING = "PING";

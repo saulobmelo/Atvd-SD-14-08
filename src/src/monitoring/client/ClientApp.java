@@ -1,4 +1,4 @@
-package client;
+package monitoring.client;
 
 import java.io.IOException;
 import java.net.DatagramPacket;

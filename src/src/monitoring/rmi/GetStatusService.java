@@ -1,6 +1,6 @@
-package rmi;
+package monitoring.rmi;
 
-import common.ResourceStatus;
+import monitoring.common.ResourceStatus;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;

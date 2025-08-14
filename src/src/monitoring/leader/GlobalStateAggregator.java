@@ -1,9 +1,9 @@
-package leader;
+package monitoring.leader;
 
-import common.NodeId;
-import common.ResourceStatus;
-import common.Snapshot;
-import rmi.GetStatusService;
+import monitoring.common.NodeId;
+import monitoring.common.ResourceStatus;
+import monitoring.common.Snapshot;
+import monitoring.rmi.GetStatusService;
 
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;

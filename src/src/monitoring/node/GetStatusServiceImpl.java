@@ -1,8 +1,8 @@
-package node;
+package monitoring.node;
 
-import common.LamportClock;
-import common.ResourceStatus;
-import rmi.GetStatusService;
+import monitoring.common.LamportClock;
+import monitoring.common.ResourceStatus;
+import monitoring.rmi.GetStatusService;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;

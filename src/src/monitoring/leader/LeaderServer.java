@@ -1,7 +1,7 @@
-package leader;
+package monitoring.leader;
 
-import common.NodeId;
-import common.Snapshot;
+import monitoring.common.NodeId;
+import monitoring.common.Snapshot;
 
 import java.util.ArrayList;
 import java.util.List;

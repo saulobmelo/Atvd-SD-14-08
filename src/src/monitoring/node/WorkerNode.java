@@ -1,8 +1,8 @@
-package node;
+package monitoring.node;
 
-import common.LamportClock;
-import common.NodeId;
-import rmi.GetStatusService;
+import monitoring.common.LamportClock;
+import monitoring.common.NodeId;
+import monitoring.rmi.GetStatusService;
 
 import java.rmi.AlreadyBoundException;
 import java.rmi.RemoteException;

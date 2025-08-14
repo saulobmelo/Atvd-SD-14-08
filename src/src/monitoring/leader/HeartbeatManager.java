@@ -1,7 +1,7 @@
-package leader;
+package monitoring.leader;
 
-import common.Messages;
-import common.NodeId;
+import monitoring.common.Messages;
+import monitoring.common.NodeId;
 
 import java.io.*;
 import java.net.InetSocketAddress;

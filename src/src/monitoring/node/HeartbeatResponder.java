@@ -1,6 +1,6 @@
-package node;
+package monitoring.node;
 
-import common.Messages;
+import monitoring.common.Messages;
 
 import java.io.*;
 import java.net.ServerSocket;
