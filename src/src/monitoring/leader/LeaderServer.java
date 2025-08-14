@@ -1,5 +1,6 @@
 package monitoring.leader;
 
+import monitoring.common.LamportClock;
 import monitoring.common.NodeId;
 import monitoring.common.Snapshot;
 
@@ -11,6 +12,9 @@ import java.util.stream.Collectors;
 
 public class LeaderServer {
     public static void main(String[] args) {
+
+        LamportClock leaderClock = new LamportClock();
+
         if (args.length < 6) {
             System.out.println("Uso: LeaderServer <mcastGroup> <mcastPort> <authPort> <myId> --nodes \"id,host,rmi,hb;...\"");
             return;
@@ -62,7 +66,8 @@ public class LeaderServer {
         // Supervisor: ciclo de coleta e publicação
         Timer timer = new Timer("supervisor", true);
         timer.scheduleAtFixedRate(new TimerTask() {
-            @Override public void run() {
+            @Override
+            public void run() {
                 try {
                     NodeId currentLeader = bully.getLeader();
                     if (currentLeader != null && currentLeader.id() != me.id()) {
@@ -82,7 +87,7 @@ public class LeaderServer {
 
                     bully.elect(alive);
 
-                    long currentClock = System.currentTimeMillis();
+                    long currentClock = leaderClock.tick();
                     for (NodeId n : alive) {
                         int clockPort = n.hbPort() + 100;
                         clockSync.sendClock(n.host(), clockPort, currentClock);
