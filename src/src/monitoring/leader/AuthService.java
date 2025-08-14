@@ -2,6 +2,7 @@ package monitoring.leader;
 
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -20,5 +21,16 @@ public class AuthService {
 
     public boolean isValid(String token) {
         return token != null && valid.contains(token);
+    }
+
+    // Permite listar tokens atuais (para o Leader publicar por token)
+    public Set<String> validTokens() {
+        return Collections.unmodifiableSet(valid);
+    }
+
+    // Logout explícito
+    public boolean logout(String token) {
+        if (token == null) return false;
+        return valid.remove(token);
     }
 }

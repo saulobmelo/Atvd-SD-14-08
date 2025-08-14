@@ -11,13 +11,14 @@ import java.util.stream.Collectors;
 
 public class LeaderServer {
     public static void main(String[] args) {
-        if (args.length < 3) {
-            System.out.println("Uso: LeaderServer <mcastGroup> <mcastPort> --nodes \"id,host,rmi,hb;...\"");
+        if (args.length < 5) {
+            System.out.println("Uso: LeaderServer <mcastGroup> <mcastPort> <authPort> --nodes \"id,host,rmi,hb;...\"");
             return;
         }
         String mcastGroup = args[0];
         int mcastPort = Integer.parseInt(args[1]);
-        String nodesArg = args[2].equals("--nodes") ? args[3] : args[2];
+        int authPort = Integer.parseInt(args[2]);
+        String nodesArg = (args.length >= 4 && args[3].equals("--nodes")) ? args[4] : args[3];
 
         List<NodeId> nodes = parseNodes(nodesArg);
         System.out.println("[Leader] Nós configurados: " + nodes);
@@ -26,6 +27,13 @@ public class LeaderServer {
         GlobalStateAggregator aggregator = new GlobalStateAggregator();
         MulticastPublisher publisher = new MulticastPublisher(mcastGroup, mcastPort);
         ElectionBully bully = new ElectionBully(null);
+
+        // Autenticação
+        AuthService authService = new AuthService();
+        AuthTcpServer authServer = new AuthTcpServer(authPort, authService);
+        Thread authThread = new Thread(authServer, "auth-server");
+        authThread.setDaemon(true);
+        authThread.start();
 
         Timer timer = new Timer("supervisor", true);
         timer.scheduleAtFixedRate(new TimerTask() {
@@ -41,19 +49,30 @@ public class LeaderServer {
                         return;
                     }
                     bully.elect(alive);
+
                     List<Snapshot> snapshots = aggregator.collect(alive);
                     String payload = snapshots.stream()
                             .map(s -> s.getNode().id() + ":" + s.getStatus().toString())
                             .collect(Collectors.joining(" | "));
-                    System.out.println("[Leader] Publicando: " + payload);
-                    publisher.publish(payload);
+
+                    // Publica uma mensagem por token válido
+                    if (authService.validTokens().isEmpty()) {
+                        System.out.println("[Leader] Sem clientes autenticados no momento.");
+                        return;
+                    }
+
+                    for (String token : authService.validTokens()) {
+                        String msg = "[TOKEN:" + token + "] " + payload;
+                        System.out.println("[Leader] Publicando p/ token " + token + ": " + payload);
+                        publisher.publish(msg);
+                    }
                 } catch (Exception e) {
                     System.err.println("[Leader] Erro ciclo: " + e.getMessage());
                 }
             }
         }, 1000, 5000);
 
-        System.out.println("[Leader] Rodando. Pressione Ctrl+C para sair.");
+        System.out.println("[Leader] Rodando (Auth@" + authPort + "). Pressione Ctrl+C para sair.");
     }
 
     private static List<NodeId> parseNodes(String arg) {
