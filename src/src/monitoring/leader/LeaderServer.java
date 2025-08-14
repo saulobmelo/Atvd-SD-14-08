@@ -2,8 +2,6 @@ package monitoring.leader;
 
 import monitoring.common.NodeId;
 import monitoring.common.Snapshot;
-import monitoring.leader.ClockSyncClient;
-import monitoring.leader.SnapshotRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,25 +11,29 @@ import java.util.stream.Collectors;
 
 public class LeaderServer {
     public static void main(String[] args) {
-        if (args.length < 5) {
-            System.out.println("Uso: LeaderServer <mcastGroup> <mcastPort> <authPort> --nodes \"id,host,rmi,hb;...\"");
+        if (args.length < 6) {
+            System.out.println("Uso: LeaderServer <mcastGroup> <mcastPort> <authPort> <myId> --nodes \"id,host,rmi,hb;...\"");
             return;
         }
         String mcastGroup = args[0];
         int mcastPort = Integer.parseInt(args[1]);
         int authPort = Integer.parseInt(args[2]);
-        String nodesArg = (args.length >= 4 && args[3].equals("--nodes")) ? args[4] : args[3];
+        int myIdNum = Integer.parseInt(args[3]);
+        String nodesArg = (args[4].equals("--nodes")) ? args[5] : args[4];
 
         List<NodeId> nodes = parseNodes(nodesArg);
+        NodeId me = nodes.stream()
+                .filter(n -> n.id() == myIdNum)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Meu ID não está na lista de nós!"));
+
+        System.out.println("[Leader] Eu sou " + me);
         System.out.println("[Leader] Nós configurados: " + nodes);
 
         HeartbeatManager hb = new HeartbeatManager(800, 1);
         GlobalStateAggregator aggregator = new GlobalStateAggregator();
         MulticastPublisher publisher = new MulticastPublisher(mcastGroup, mcastPort);
-        ElectionBully bully = new ElectionBully(null);
-
-        ClockSyncClient clockSync = new ClockSyncClient(500);
-        SnapshotRepository snapshotRepo = new SnapshotRepository();
+        ElectionBully bully = new ElectionBully(me);
 
         // Autenticação
         AuthService authService = new AuthService();
@@ -40,11 +42,34 @@ public class LeaderServer {
         authThread.setDaemon(true);
         authThread.start();
 
+        // Sincronização de clock
+        ClockSyncClient clockSync = new ClockSyncClient(500);
+        SnapshotRepository snapshotRepo = new SnapshotRepository();
+
+        // Bully: servidor de mensagens
+        BullyMessageServer bullyServer = new BullyMessageServer(
+                me.hbPort() + 200,
+                me,
+                nodes,
+                newLeader -> {
+                    System.out.println("[Leader] Atualizando líder para: " + newLeader);
+                    bully.elect(List.of(newLeader)); // atualiza internamente
+                }
+        );
+        Thread bullyThread = new Thread(bullyServer, "bully-server");
+        bullyThread.start();
+
+        // Supervisor: ciclo de coleta e publicação
         Timer timer = new Timer("supervisor", true);
         timer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
+            @Override public void run() {
                 try {
+                    NodeId currentLeader = bully.getLeader();
+                    if (currentLeader != null && currentLeader.id() != me.id()) {
+                        System.out.println("[Leader] Não sou o líder, aguardando...");
+                        return;
+                    }
+
                     List<NodeId> alive = new ArrayList<>();
                     for (NodeId n : nodes) {
                         boolean ok = hb.ping(n);
@@ -54,33 +79,22 @@ public class LeaderServer {
                         System.out.println("[Leader] Nenhum nó vivo no momento.");
                         return;
                     }
+
                     bully.elect(alive);
 
-                    // Gerar clock lógico para este ciclo (futuramente pode ser um LamportClock no líder)
-                    long currentClock = System.currentTimeMillis(); // simplificado para agora
-
-                    // Enviar clock para todos os nós antes da coleta
+                    long currentClock = System.currentTimeMillis();
                     for (NodeId n : alive) {
-                        // Aqui vamos supor que a porta do ClockSync seja hbPort + 100
                         int clockPort = n.hbPort() + 100;
-                        boolean okClock = clockSync.sendClock(n.host(), clockPort, currentClock);
-                        if (!okClock) {
-                            System.err.println("[Leader] Falha ao sincronizar clock com " + n);
-                        }
+                        clockSync.sendClock(n.host(), clockPort, currentClock);
                     }
 
-                    // Coletar snapshots com o clock sincronizado
                     List<Snapshot> snapshots = aggregator.collect(alive);
-
-                    // Guardar snapshot no repositório para histórico
                     snapshotRepo.store(currentClock, snapshots);
 
-                    // Montar payload
                     String payload = snapshots.stream()
                             .map(s -> s.getNode().id() + ":" + s.getStatus().toString())
                             .collect(Collectors.joining(" | "));
 
-                    // Publicar por token
                     if (authService.validTokens().isEmpty()) {
                         System.out.println("[Leader] Sem clientes autenticados no momento.");
                         return;
@@ -91,7 +105,6 @@ public class LeaderServer {
                         System.out.println("[Leader] Publicando p/ token " + token + ": " + payload);
                         publisher.publish(msg);
                     }
-
                 } catch (Exception e) {
                     System.err.println("[Leader] Erro ciclo: " + e.getMessage());
                 }
