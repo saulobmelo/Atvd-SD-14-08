@@ -9,7 +9,7 @@
 - Clique na opção de terminal na sua IDE
 - Execute esse código
 ```bash
-src/src/run_all_windows
+src/src/run_all_windows.bat
 ```
 - Será executado o arquivo .bat com todo o processo
 > O cliente só imprime mensagens cujo prefixo seja `[TOKEN:<token>]`, recebidas do líder via multicast.
